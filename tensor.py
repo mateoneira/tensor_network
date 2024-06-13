@@ -30,7 +30,12 @@ def add(t1: Tensor, t2: Tensor) -> Tensor:
     return Tensor(t1.a + t2.a, t1.b + t2.b, t1.d + t2.d)
 
 def sum_tensors(tensors: list) -> Tensor:
-    return sum(tensors, trivial)
+    if len(tensors) == 0:
+        return trivial
+    elif len(tensors) == 1:
+        return tensors[0]
+    else:
+        return add(tensors[0], sum_tensors(tensors[1:]))
 
 def scalar_times(c: float, t: Tensor) -> Tensor:
     return Tensor(c * t.a, c * t.b, c * t.d)

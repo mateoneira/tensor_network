@@ -7,6 +7,20 @@ class Vector2:
 
     def __repr__(self):
         return f"Vector2({self.x}, {self.y})"
+    
+    def unit(self):
+        magnitude = mag(self)
+        if magnitude == 0:
+            return Vector2(0, 0)
+        else:
+            return scalar_times(1 / magnitude, self)
+    
+    def scalar_times(self, c: float):
+        return Vector2(c * self.x, c * self.y)
+
+    def add(self, v2):
+        return Vector2(self.x + v2.x, self.y + v2.y)
+
 
 # Define the zero vector
 zero = Vector2(0.0, 0.0)
