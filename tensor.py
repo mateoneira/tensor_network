@@ -1,75 +1,57 @@
-import numpy as np
+import math
+from vector import Vector2 
+from typing import Union
 
-def create_grid_tensor_field(shape, direction=(1, 0)):
-    tensor_field = np.zeros((shape[0], shape[1], 2, 2))
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            theta = np.arctan2(direction[1], direction[0])
-            tensor_field[i, j] = np.array([[np.cos(2*theta), np.sin(2*theta)],
-                                           [np.sin(2*theta), -np.cos(2*theta)]])
-    return tensor_field
+class Tensor:
+    def __init__(self, a: float, b: float, d: float):
+        self.a = a
+        self.b = b
+        self.d = d
 
-def create_radial_tensor_field(shape, center):
-    tensor_field = np.zeros((shape[0], shape[1], 2, 2))
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            x, y = i - center[0], j - center[1]
-            theta = np.arctan2(y, x)
-            tensor_field[i, j] = np.array([[np.cos(2*theta), np.sin(2*theta)],
-                                           [np.sin(2*theta), -np.cos(2*theta)]])
-    return tensor_field
+    def __repr__(self):
+        return f"Tensor({self.a}, {self.b}, {self.d})"
 
-def combine_basis_fields(basis_fields, positions, decay_constant=1.0):
-    combined_field = np.zeros_like(basis_fields[0])
-    for i, field in enumerate(basis_fields):
-        pos = positions[i]
-        distance = np.sqrt((np.arange(combined_field.shape[0])[:, None] - pos[0]) ** 2 +
-                           (np.arange(combined_field.shape[1])[None, :] - pos[1]) ** 2)
-        weight = np.exp(-decay_constant * distance ** 2)
-        combined_field += weight[:, :, None, None] * field
-    return combined_field
+# Define the trivial tensor
+trivial = Tensor(0.0, 0.0, 0.0)
 
+# Creating tensors from various types of constraints
+def from_r_theta(r: float, t: float) -> Tensor:
+    cos_2t = r * math.cos(2 * t)
+    sin_2t = r * math.sin(2 * t)
+    return Tensor(cos_2t, sin_2t, -cos_2t)
 
-def trace_hyperstreamline(tensor_field, start_point, dsep=1):
-    # A simple example of tracing a streamline
-    streamline = [start_point]
-    current_point = start_point
-    
-    while True:
-        i, j = int(current_point[0]), int(current_point[1])
-        if i < 0 or j < 0 or i >= tensor_field.shape[0] or j >= tensor_field.shape[1]:
-            break
-        tensor = tensor_field[i, j]
-        direction = np.array([tensor[0, 0], tensor[0, 1]])
-        next_point = current_point + dsep * direction / np.linalg.norm(direction)
-        streamline.append(next_point)
-        if np.linalg.norm(next_point - current_point) < 0.01:
-            break
-        current_point = next_point
-    
-    return np.array(streamline)
+def from_xy(x: float, y: float) -> Tensor:
+    xy = -2 * x * y
+    diff_squares = y * y - x * x
+    return Tensor(diff_squares, xy, -diff_squares)
 
+# Basic tensor operations
+def add(t1: Tensor, t2: Tensor) -> Tensor:
+    return Tensor(t1.a + t2.a, t1.b + t2.b, t1.d + t2.d)
 
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    shape = (100, 100)
-    grid_tensor_field = create_grid_tensor_field(shape)
-    radial_tensor_field = create_radial_tensor_field(shape, (50, 50))
+def sum_tensors(tensors: list) -> Tensor:
+    return sum(tensors, trivial)
 
-    combined_field = combine_basis_fields(
-        [grid_tensor_field, radial_tensor_field],
-        [(50, 50), (75, 75)],
-        decay_constant=0.01
-)   
+def scalar_times(c: float, t: Tensor) -> Tensor:
+    return Tensor(c * t.a, c * t.b, c * t.d)
 
-    start_point = np.array([50, 50])
-    streamline = trace_hyperstreamline(combined_field, start_point)
+def is_real(t: Tensor) -> bool:
+    def isreal(x):
+        return not (math.isnan(x) or math.isinf(x))
+    return isreal(t.a) and isreal(t.b) and isreal(t.d)
 
-    plt.figure(figsize=(8, 8))
-    plt.quiver(np.arange(shape[0]), np.arange(shape[1]), combined_field[..., 0, 0], combined_field[..., 0, 1])
-    plt.plot(streamline[:, 1], streamline[:, 0], 'r')
-    plt.xlim(0, shape[1])
-    plt.ylim(0, shape[0])
-    plt.gca().invert_yaxis()
-    plt.show()
-    print('Done!')
+# Calculating eigenvalues and vectors
+def eigenvalues(t: Tensor) -> Union[float, float]:
+    eval_ = math.sqrt(t.a * t.a + t.b * t.b)
+    return eval_, -eval_
+
+def eigenvectors(t: Tensor) -> Union[Vector2, Vector2]:
+    if t.b == 0:
+        if t.a > t.d:
+            return Vector2(1, 0), Vector2(0, 1)
+        else:
+            return Vector2(0, 1), Vector2(1, 0)
+    else:
+        eval1, eval2 = eigenvalues(t)
+        mk_evec = lambda eval_: Vector2(1, (eval_ - t.a) / t.b)
+        return mk_evec(eval1), mk_evec(eval2)
